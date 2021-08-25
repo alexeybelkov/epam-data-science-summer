@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 from sklearn.metrics import mean_absolute_error
 from statsmodels.tsa.seasonal import seasonal_decompose
+
 def lagged(data, col, lag):
     return data[col].shift(lag)
 
