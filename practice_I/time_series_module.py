@@ -23,43 +23,67 @@ def get_season(x):      # 1 : winter , 2 : spring, 3 : summer, 4 : autumn
         return 4
 
 def get_dt_frame(data, name, begin, end, fill = 0):
+    columns = [name + '_' + str(t) for t in range(begin, end)]
     data[['{}_{}'.format(name,t) for t in range(begin, end)]] = pd.DataFrame(data = fill,
-                                                                          index = list(range(len(data))),
-                                                                          columns = [name + '_' + str(t)
-                                                                                     for t in range(begin, end)])
+                                                                          index = list(range(len(data))), columns = columns)
+    return columns
 
-def get_date_time_features(data,dt_col, hour = True, day = True, month = False, season = False, year = False):
+def get_date_time_features(data, dt_col, one_hot_encoding : dict, hour = True, day = True, month = False, season = False, year = False):
+    new_date_time_columns = []
     if hour:
-        get_dt_frame(data, 'h', begin = 0, end = 24, fill = 0)
+        temp_columns = ['hour']
         temp = data[dt_col].dt.hour
-        for i in range(len(data)):
-            data.loc[i, 'h_' + str(temp[i])] = 1
+        if one_hot_encoding['hour']:
+            temp_columns = get_dt_frame(data, 'h', begin = 0, end = 24, fill = 0)
+            for i in range(len(data)):
+                data.loc[i, 'h_' + str(temp[i])] = 1
+        else:
+            data['hour'] = temp
+        new_date_time_columns += temp_columns
+
 
     if day:
-        get_dt_frame(data, 'd', begin = 1, end = 32, fill = 0)
         temp = data[dt_col].dt.day
-        for i in range(len(data)):
-            data.loc[i, 'd_' + str(temp[i])] = 1
+        temp_columns = ['day']
+        if one_hot_encoding['day']:
+            temp_columns = get_dt_frame(data, 'd', begin = 1, end = 32, fill = 0)
+            for i in range(len(data)):
+                data.loc[i, 'd_' + str(temp[i])] = 1
+        else:
+            data['day'] = temp
+        new_date_time_columns += temp_columns
 
     if month:
-        get_dt_frame(data, 'm', begin = 1, end = 13, fill = 0)
+        temp_columns = ['month']
         temp = data[dt_col].dt.month
-        for i in range(len(data)):
-            data.loc[i, 'm_' + str(temp[i])] = 1
+        if one_hot_encoding['month']:
+            temp_columns = get_dt_frame(data, 'm', begin = 1, end = 13, fill = 0)
+            for i in range(len(data)):
+                data.loc[i, 'm_' + str(temp[i])] = 1
+        else:
+            data['month'] = temp
+        new_date_time_columns += temp_columns
 
     if season:
-        get_dt_frame(data, 's', begin = 1, end = 5, fill = 0)
-        temp = data[dt_col].dt.month
-        for i in range(len(data)):
-            ssn_num = get_season(temp[i])
-            data.loc[i , 's_' + str(ssn_num)] = 1
+        temp_columns = ['season']
+        if one_hot_encoding['season']:
+            temp_columns = get_dt_frame(data, 's', begin = 1, end = 5, fill = 0)
+            temp = data[dt_col].dt.month
+            for i in range(len(data)):
+                ssn_num = get_season(temp[i])
+                data.loc[i , 's_' + str(ssn_num)] = 1
+        else:
+
+            data['season'] = temp.apply(get_season)
+        new_date_time_columns += temp_columns
 
     if year:
         get_dt_frame(data, 'y', begin = 2010, end = 2012, fill = 0)
         temp = data[dt_col].dt.year
         for i in range(len(data)):
             data.loc[i, 'y_' + str(temp[i])] = 1
-    return ['h_{}'.format(h) for h in range(0, 24)] + ['d_{}'.format(d) for d in range(1,32)] + ['m_{}'.format(m) for m in range(1,13)] + ['s_{}'.format(s) for s in range(1,5)] + ['y_{}'.format(y) for y in range(2010, 2012)]
+    return new_date_time_columns
+    #return ['h_{}'.format(h) for h in range(0, 24)] + ['d_{}'.format(d) for d in range(1,32)] + ['m_{}'.format(m) for m in range(1,13)] + ['s_{}'.format(s) for s in range(1,5)] + ['y_{}'.format(y) for y in range(2010, 2012)]
 
 def get_outliers(data, *perc):
     Q1, Q3 = np.percentile(data, perc)
@@ -183,12 +207,12 @@ class ForecastModel:
             features_data = feature_extractor(f_dict, data_frame = self.data, distinct = True, lagged = [self.features, self.prior_lag, True])
         elif type(self.prior_lag) == int:
             features_data = feature_extractor(f_dict, data_frame = self.data, distinct = True, lagged = [self.features, self.prior_lag, False])
-
+            
         if type(self.post_lag) == list:
             targets_data = feature_extractor(t_dict, data_frame = self.data, distinct = True, lagged = [self.targets, self.post_lag, True])
         elif type(self.post_lag) == int:
             targets_data = feature_extractor(t_dict, data_frame = self.data, distinct = True, lagged = [self.targets, self.post_lag, False])
-        self.data = pd.concat([features_data, targets_data, self.date_time], axis = 1).dropna()
+        self.data = pd.concat([features_data, targets_data, self.data[self.date_time]], axis = 1).dropna()
         if new_index:
             self.data.index = list(range(len(self.data)))
         self.features = list(f_dict.values())[0]
