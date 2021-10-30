@@ -28,12 +28,12 @@ def get_dt_frame(data, name, begin, end, fill = 0):
                                                                           index = list(range(len(data))), columns = columns)
     return columns
 
-def get_date_time_features(data, dt_col, one_hot_encoding : dict, hour = True, day = True, month = False, season = False, year = False):
+def get_date_time_features(data, dt_col, **params):#one_hot_encoding : dict, hour = True, day = True, month = False, season = False, year = False):
     new_date_time_columns = []
-    if hour:
+    if params['hour'][0]:
         temp_columns = ['hour']
         temp = data[dt_col].dt.hour
-        if one_hot_encoding['hour']:
+        if params['hour'][1]:
             temp_columns = get_dt_frame(data, 'h', begin = 0, end = 24, fill = 0)
             for i in range(len(data)):
                 data.loc[i, 'h_' + str(temp[i])] = 1
@@ -42,10 +42,10 @@ def get_date_time_features(data, dt_col, one_hot_encoding : dict, hour = True, d
         new_date_time_columns += temp_columns
 
 
-    if day:
+    if params['day'][0]: 
         temp = data[dt_col].dt.day
         temp_columns = ['day']
-        if one_hot_encoding['day']:
+        if params['day'][1]:
             temp_columns = get_dt_frame(data, 'd', begin = 1, end = 32, fill = 0)
             for i in range(len(data)):
                 data.loc[i, 'd_' + str(temp[i])] = 1
@@ -53,10 +53,10 @@ def get_date_time_features(data, dt_col, one_hot_encoding : dict, hour = True, d
             data['day'] = temp
         new_date_time_columns += temp_columns
 
-    if month:
+    if params['month'][0]:
         temp_columns = ['month']
         temp = data[dt_col].dt.month
-        if one_hot_encoding['month']:
+        if params['month'][1]:
             temp_columns = get_dt_frame(data, 'm', begin = 1, end = 13, fill = 0)
             for i in range(len(data)):
                 data.loc[i, 'm_' + str(temp[i])] = 1
@@ -64,9 +64,9 @@ def get_date_time_features(data, dt_col, one_hot_encoding : dict, hour = True, d
             data['month'] = temp
         new_date_time_columns += temp_columns
 
-    if season:
+    if params['season'][0]:
         temp_columns = ['season']
-        if one_hot_encoding['season']:
+        if params['season'][1]:
             temp_columns = get_dt_frame(data, 's', begin = 1, end = 5, fill = 0)
             temp = data[dt_col].dt.month
             for i in range(len(data)):
@@ -77,7 +77,7 @@ def get_date_time_features(data, dt_col, one_hot_encoding : dict, hour = True, d
             data['season'] = temp.apply(get_season)
         new_date_time_columns += temp_columns
 
-    if year:
+    if params['year'][0]:
         get_dt_frame(data, 'y', begin = 2010, end = 2012, fill = 0)
         temp = data[dt_col].dt.year
         for i in range(len(data)):
@@ -193,7 +193,7 @@ class ForecastModel:
     def __init__(self, date_time, data, features, targets, prior_lag, post_lag = 0, prior_listed =  False, post_listed = False):
         self.data = data
         self.features = features
-        self.targets = targets
+        self.targets = targets if type(targets) == list else [targets]
         self.prior_lag = prior_lag
         self.post_lag = post_lag
         self.prior_listed = prior_listed
@@ -218,3 +218,22 @@ class ForecastModel:
         self.features = list(f_dict.values())[0]
         self.targets = list(t_dict.values())[0]
         self.prepared = True
+
+    def get_params(self):
+        return {'data' : self.data, 'features' : self.features, 'target' : self.targets, 'date_time' : self.date_time}
+
+class ForecastClass:
+    def __init__(self, data, features, target,  date_time):
+        self.data = data
+        self.features = features
+        self.target = target
+        self.date_time = date_time
+    def get_data(self):
+        return self.data.copy()
+    def get_features(self):
+        return self.features.copy()
+    def get_target(self):
+        return self.target.copy()
+    def get_date_time(self):
+        return self.date_time.copy()
+    # def add_model(self, model):

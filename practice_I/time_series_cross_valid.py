@@ -48,7 +48,8 @@ def cross_valid(forecast_model, cv_dict, model, metrics):
         results['mean_Y_train_pred'] += Y_train_pred
         results['mean_Y_test'] += Y_test
         results['mean_Y_pred'] += Y_pred
-        results['importances'] = model.importances if results['importances'] is None else model.importances + results['importances']
+        if model.make_importances:
+            results['importances'] = model.importances if results['importances'] is None else model.importances + results['importances']
     results['train_residuals'] /= cv.n_splits
     results['test_residuals'] /= cv.n_splits
     results['train_loss'] /= cv.n_splits
@@ -58,7 +59,8 @@ def cross_valid(forecast_model, cv_dict, model, metrics):
     results['mean_Y_test'] /= cv.n_splits
     results['mean_Y_pred'] /= cv.n_splits
     results['cv_dict'] = cv_dict
-    results['importances'] /= cv.n_splits
+    if model.make_importances:
+        results['importances'] /= cv.n_splits
     return results
 
 def run_cv(data, targets, horizons, CrossValid_params, ForecastModel_params, model, metrics):
@@ -148,3 +150,16 @@ def get_importances(quality, horizons, plot_importances = False):
                 plt.legend()
                 plt.show() 
     return importances_dict
+
+
+def new_cv(data, features, target, cv, model, metrics, get_importances = False):
+    results = {'train_loss' : [], 'test_loss' : [], 'importances' : []}
+    for train, test in cv:
+        train_X, train_Y = tsm.to_numpy(data[features].loc[train]), tsm.to_numpy(data[target].loc[train])
+        test_X, test_Y = tsm.to_numpy(data[features].loc[test]), tsm.to_numpy(data[target].loc[test])
+        fitted_model = model.fit(train_X, train_Y)
+        train_Y_hat, test_Y_hat = np.reshape(fitted_model.predict(train_X), train_Y.shape), np.reshape(fitted_model.predict(test_X), test_Y.shape[0])
+        results['train_loss'].append(metrics(train_Y_hat, train_Y))
+        results['test_loss'].append(metrics(test_Y_hat, test_Y))
+        results['importances'].append(pandas_Series(data = fitted_model.importances, index = features))
+    return results
