@@ -1,7 +1,5 @@
 import pandas as pd
 import numpy as np
-import torch.nn as nn
-from torch.nn import MSELoss
 from sklearn.metrics import mean_squared_error as MSE
 from statsmodels.tsa.seasonal import seasonal_decompose
 
